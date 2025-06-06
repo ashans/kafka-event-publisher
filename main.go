@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"ev_pub/internal/codec"
 	"ev_pub/internal/config"
 	"ev_pub/internal/di"
 	"ev_pub/internal/http"
@@ -25,6 +26,10 @@ func main() {
 	ctx := context.Background()
 
 	container := di.NewPluginResolvableContainer(appConfig, new(producer.LibrdProducer))
+
+	container.SetEncoder(`byte`, codec.ByteEncoder{})
+	container.SetPartitioner(`zero`, producer.AlwaysZeroPartitioner{})
+
 	err = container.InitModules(ctx)
 	if err != nil {
 		panic(err)

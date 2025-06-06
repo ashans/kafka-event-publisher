@@ -50,7 +50,7 @@ func (p *Publisher) Publish(ctx context.Context, topic string, key, value, parti
 		return 0, 0, err
 	}
 
-	offset, err = p.container.DefaultProducer().Produce(ctx, encodedKey, encodedVal, headers, partition)
+	offset, err = p.container.DefaultProducer().Produce(ctx, topic, encodedKey, encodedVal, headers, partition)
 	if err != nil {
 		return 0, 0, err
 	}
