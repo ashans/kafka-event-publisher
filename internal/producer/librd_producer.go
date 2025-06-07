@@ -5,6 +5,7 @@ import (
 	"ev_pub/internal/config"
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"strings"
 	"time"
 )
 
@@ -13,15 +14,14 @@ type LibrdProducer struct {
 	admin    *kafka.AdminClient
 }
 
-func (l *LibrdProducer) Init(_ context.Context, _ config.ProducerConfig) (err error) {
-	l.producer, err = kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": "localhost:9092"})
+func (l *LibrdProducer) Init(_ context.Context, config config.ProducerConfig) (err error) {
+	bootstrapServers := strings.Join(config.BootstrapServers, `,`)
+	l.producer, err = kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": bootstrapServers})
 	if err != nil {
 		return err
 	}
 
-	l.admin, err = kafka.NewAdminClient(&kafka.ConfigMap{
-		"bootstrap.servers": "localhost:9092",
-	})
+	l.admin, err = kafka.NewAdminClient(&kafka.ConfigMap{"bootstrap.servers": bootstrapServers})
 	if err != nil {
 		return err
 	}
