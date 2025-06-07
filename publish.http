@@ -1,0 +1,22 @@
+POST http://localhost:8080/api
+Content-Type: application/json
+
+{
+  "topic": "test-topic",
+  "headers": {
+    "header1": "header_val1"
+  },
+  "key": {
+    "type": "byte",
+    "value": "key1"
+  },
+  "value": {
+    "type": "byte",
+    "value": "val1"
+  },
+  "partitioner": {
+    "type": "zero"
+  }
+}
+
+###

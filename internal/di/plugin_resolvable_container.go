@@ -14,10 +14,12 @@ type PluginResolvableContainer struct {
 	partitioner map[string]producer.Partitioner
 }
 
-func NewPluginResolvableContainer(appConfig config.AppConfig, producer producer.Producer) *PluginResolvableContainer {
+func NewPluginResolvableContainer(appConfig config.AppConfig, kafkaProducer producer.Producer) *PluginResolvableContainer {
 	return &PluginResolvableContainer{
-		producer: producer,
-		config:   appConfig,
+		config:      appConfig,
+		producer:    kafkaProducer,
+		encoders:    make(map[string]codec.Encoder),
+		partitioner: make(map[string]producer.Partitioner),
 	}
 }
 
