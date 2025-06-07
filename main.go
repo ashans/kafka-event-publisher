@@ -28,7 +28,7 @@ func main() {
 	container := di.NewPluginResolvableContainer(appConfig, new(producer.LibrdProducer))
 
 	container.SetEncoder(`byte`, codec.ByteEncoder{})
-	container.SetPartitioner(`zero`, producer.AlwaysZeroPartitioner{})
+	container.SetPartitioner(`defined`, producer.DefinedPartitioner{})
 
 	err = container.InitModules(ctx)
 	if err != nil {

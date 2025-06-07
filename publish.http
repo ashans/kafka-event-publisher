@@ -8,14 +8,15 @@ Content-Type: application/json
   },
   "key": {
     "type": "byte",
-    "value": "key1"
+    "value": "key"
   },
   "value": {
     "type": "byte",
-    "value": "val1"
+    "value": "val"
   },
   "partitioner": {
-    "type": "zero"
+    "type": "defined",
+    "partition": "2"
   }
 }
 
