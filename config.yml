@@ -6,13 +6,15 @@ http:
   path:
     api: api
     ui: ui
+plugins:
+  dir: plugins
+  encoders:
+  partitioners:
 producer:
   bootstrap_servers: [localhost:9092]
 encoders:
-  avro:
-    schema_reg: localhost:8081
-  string:
-  json:
+  byte:
 partitioners:
-  static:
-  murmer:
+  defined:
+  random:
+    seed: 10

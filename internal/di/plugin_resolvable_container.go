@@ -2,9 +2,12 @@ package di
 
 import (
 	"context"
+	"errors"
 	"ev_pub/internal/codec"
 	"ev_pub/internal/config"
 	"ev_pub/internal/producer"
+	"log"
+	"plugin"
 )
 
 type PluginResolvableContainer struct {
@@ -28,7 +31,10 @@ func (p *PluginResolvableContainer) SetEncoder(key string, encoder codec.Encoder
 }
 
 func (p *PluginResolvableContainer) GetEncoder(key string) (codec.Encoder, error) {
-	return p.encoders[key], nil
+	if enc, ok := p.encoders[key]; ok {
+		return enc, nil
+	}
+	return nil, errors.New("encoder not found with key: " + key)
 }
 
 func (p *PluginResolvableContainer) SetPartitioner(key string, partitioner producer.Partitioner) {
@@ -36,7 +42,10 @@ func (p *PluginResolvableContainer) SetPartitioner(key string, partitioner produ
 }
 
 func (p *PluginResolvableContainer) GetPartitioner(key string) (producer.Partitioner, error) {
-	return p.partitioner[key], nil
+	if partitioner, ok := p.partitioner[key]; ok {
+		return partitioner, nil
+	}
+	return nil, errors.New("partitioner not found with key: " + key)
 }
 
 func (p *PluginResolvableContainer) DefaultProducer() producer.Producer {
@@ -44,29 +53,36 @@ func (p *PluginResolvableContainer) DefaultProducer() producer.Producer {
 }
 
 func (p *PluginResolvableContainer) InitModules(ctx context.Context) error {
+	err := p.loadPlugins()
+	if err != nil {
+		return err
+	}
 	for key, enc := range p.encoders {
 		if init, ok := enc.(Initialize); ok {
-			err := init.Init(ctx, p.config.Encoders[key].Configs())
+			err = init.Init(ctx, p.config.Encoders[key].Configs())
 			if err != nil {
 				return err
 			}
+			log.Default().Print("encoder " + key + " has been initialized")
 		}
 	}
 
 	for key, partitioner := range p.partitioner {
 		if init, ok := partitioner.(Initialize); ok {
-			err := init.Init(ctx, p.config.Partitioners[key].Configs())
+			err = init.Init(ctx, p.config.Partitioners[key].Configs())
 			if err != nil {
 				return err
 			}
+			log.Default().Print("partitioner " + key + " has been initialized")
 		}
 	}
 
 	if init, ok := p.producer.(InitializeProducer); ok {
-		err := init.Init(ctx, p.config.Producer)
+		err = init.Init(ctx, p.config.Producer)
 		if err != nil {
 			return err
 		}
+		log.Default().Print("producer has been initialized")
 	}
 
 	return nil
@@ -99,4 +115,65 @@ func (p *PluginResolvableContainer) CloseModules(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (p *PluginResolvableContainer) loadPlugins() error {
+	for key, pluginLoadData := range p.config.Plugins.Encoders {
+		err := p.loadEncoder(key, pluginLoadData)
+		if err != nil {
+			return err
+		}
+		log.Default().Print(`encoder plugin ` + key + ` loaded`)
+	}
+
+	for key, pluginLoadData := range p.config.Plugins.Partitioners {
+		err := p.loadPartitioner(key, pluginLoadData)
+		if err != nil {
+			return err
+		}
+		log.Default().Print(`partitioner plugin ` + key + ` loaded`)
+	}
+
+	return nil
+}
+
+func (p *PluginResolvableContainer) loadEncoder(key string, loadData config.PluginLoadConfig) error {
+	sym, err := p.loadPlugin(loadData)
+	if err != nil {
+		return err
+	}
+
+	encoderPlugin, ok := sym.(codec.Encoder)
+	if !ok {
+		return errors.New("encoder " + key + " is not a valid encoder plugin type")
+	}
+	p.SetEncoder(key, encoderPlugin)
+	return nil
+}
+
+func (p *PluginResolvableContainer) loadPartitioner(key string, loadData config.PluginLoadConfig) error {
+	sym, err := p.loadPlugin(loadData)
+	if err != nil {
+		return err
+	}
+
+	partitionerPlugin, ok := sym.(producer.Partitioner)
+	if !ok {
+		return errors.New("partitioner " + key + " is not a valid partitioner plugin type")
+	}
+	p.SetPartitioner(key, partitionerPlugin)
+	return nil
+}
+
+func (p *PluginResolvableContainer) loadPlugin(conf config.PluginLoadConfig) (plugin.Symbol, error) {
+	loadedPlugin, err := plugin.Open(`./` + p.config.Plugins.Dir + `/` + conf.FileName)
+	if err != nil {
+		return nil, err
+	}
+	sym, err := loadedPlugin.Lookup(conf.Symbol)
+	if err != nil {
+		return nil, err
+	}
+
+	return sym, nil
 }

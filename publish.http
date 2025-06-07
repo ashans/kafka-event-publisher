@@ -2,7 +2,7 @@ POST http://localhost:8080/api
 Content-Type: application/json
 
 {
-  "topic": "test-topic",
+  "topic": "test",
   "headers": {
     "header1": "header_val1"
   },
@@ -12,13 +12,10 @@ Content-Type: application/json
   },
   "value": {
     "type": "byte",
-    "value": {
-      "json_key": "value"
-    }
+    "value": "value"
   },
   "partitioner": {
-    "type": "defined",
-    "partition": "2"
+    "type": "random"
   }
 }
 
