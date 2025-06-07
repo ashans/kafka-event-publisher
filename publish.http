@@ -12,7 +12,9 @@ Content-Type: application/json
   },
   "value": {
     "type": "byte",
-    "value": "val"
+    "value": {
+      "json_key": "value"
+    }
   },
   "partitioner": {
     "type": "defined",

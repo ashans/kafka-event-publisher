@@ -3,6 +3,8 @@ package common
 import (
 	"encoding/json"
 	"errors"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 const (
@@ -16,19 +18,25 @@ type TypeValWithOptions struct {
 }
 
 func (a *TypeValWithOptions) UnmarshalJSON(data []byte) error {
-	var unmarshalling map[string]string
-	err := json.Unmarshal(data, &unmarshalling)
-	if err != nil {
-		return err
-	}
-
-	a.typeKey = unmarshalling[typeKey]
+	a.typeKey = gjson.GetBytes(data, typeKey).String()
 	if a.typeKey == "" {
 		return errors.New("missing type")
 	}
-	a.val = unmarshalling[valKey]
-	delete(unmarshalling, typeKey)
-	delete(unmarshalling, valKey)
+
+	a.val = gjson.GetBytes(data, valKey).String()
+	data, err := sjson.DeleteBytes(data, typeKey)
+	if err != nil {
+		return err
+	}
+	data, err = sjson.DeleteBytes(data, valKey)
+	if err != nil {
+		return err
+	}
+	var unmarshalling map[string]string
+	err = json.Unmarshal(data, &unmarshalling)
+	if err != nil {
+		return err
+	}
 	a.options = unmarshalling
 	return nil
 }
