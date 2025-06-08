@@ -3,6 +3,7 @@ package producer
 import (
 	"context"
 	"ev_pub/internal/config"
+	"ev_pub/internal/errors"
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"strings"
@@ -18,12 +19,12 @@ func (l *LibrdProducer) Init(_ context.Context, config config.ProducerConfig) (e
 	bootstrapServers := strings.Join(config.BootstrapServers, `,`)
 	l.producer, err = kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": bootstrapServers})
 	if err != nil {
-		return err
+		return errors.Wrap(err, `failed to create kafka producer`)
 	}
 
 	l.admin, err = kafka.NewAdminClient(&kafka.ConfigMap{"bootstrap.servers": bootstrapServers})
 	if err != nil {
-		return err
+		return errors.Wrap(err, `error creating kafka admin client`)
 	}
 
 	return nil
@@ -56,16 +57,16 @@ func (l *LibrdProducer) Produce(_ context.Context, topic string, key, value []by
 		Headers:        recordHeaders,
 	}, deliveryChan)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, `failed to produce message`)
 	}
 
 	e := <-deliveryChan
 	m, ok := e.(*kafka.Message)
 	if !ok {
-		return 0, fmt.Errorf("Delivery failed, expected message type: %T, got: %T", m, e)
+		return 0, errors.Wrap(fmt.Errorf("delivery failed, expected message type: %T, got: %T", m, e), `failed to produce message`)
 	}
 	if m.TopicPartition.Error != nil {
-		return 0, m.TopicPartition.Error
+		return 0, errors.New(m.TopicPartition.Error.Error())
 	}
 
 	return int64(m.TopicPartition.Offset), nil
@@ -76,17 +77,17 @@ func (l *LibrdProducer) TopicPartitions(ctx context.Context, topic string) (int3
 	defer cancel()
 	describeTopicsResult, err := l.admin.DescribeTopics(ctx, kafka.NewTopicCollectionOfTopicNames([]string{topic}))
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, `failed to describe topics`)
 	}
 
 	// Print results
 	for _, t := range describeTopicsResult.TopicDescriptions {
 		if t.Error.Code() != 0 {
-			return 0, fmt.Errorf("%s", t.Error.Error())
+			return 0, errors.New(t.Error.Error())
 		}
 
 		return int32(len(t.Partitions)), nil
 	}
 
-	return 0, fmt.Errorf("topic %s not found", topic)
+	return 0, errors.New("topic " + topic + " not found")
 }

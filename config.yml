@@ -10,6 +10,9 @@ plugins:
   dir: plugins
   encoders:
   partitioners:
+    random:
+      filename: random_partitioner.so
+      symbol: Partitioner
 producer:
   bootstrap_servers: [localhost:9092]
 encoders:

@@ -2,9 +2,9 @@ package di
 
 import (
 	"context"
-	"errors"
 	"ev_pub/internal/codec"
 	"ev_pub/internal/config"
+	"ev_pub/internal/errors"
 	"ev_pub/internal/producer"
 	"log"
 	"plugin"
@@ -55,13 +55,13 @@ func (p *PluginResolvableContainer) DefaultProducer() producer.Producer {
 func (p *PluginResolvableContainer) InitModules(ctx context.Context) error {
 	err := p.loadPlugins()
 	if err != nil {
-		return err
+		return errors.Wrap(err, `error loading plugins`)
 	}
 	for key, enc := range p.encoders {
 		if init, ok := enc.(Initialize); ok {
 			err = init.Init(ctx, p.config.Encoders[key].Configs())
 			if err != nil {
-				return err
+				return errors.Wrap(err, `error initializing encoder `+key)
 			}
 			log.Default().Print("encoder " + key + " has been initialized")
 		}
@@ -71,7 +71,7 @@ func (p *PluginResolvableContainer) InitModules(ctx context.Context) error {
 		if init, ok := partitioner.(Initialize); ok {
 			err = init.Init(ctx, p.config.Partitioners[key].Configs())
 			if err != nil {
-				return err
+				return errors.Wrap(err, `error initializing partitioner `+key)
 			}
 			log.Default().Print("partitioner " + key + " has been initialized")
 		}
@@ -80,7 +80,7 @@ func (p *PluginResolvableContainer) InitModules(ctx context.Context) error {
 	if init, ok := p.producer.(InitializeProducer); ok {
 		err = init.Init(ctx, p.config.Producer)
 		if err != nil {
-			return err
+			return errors.Wrap(err, `error initializing producer`)
 		}
 		log.Default().Print("producer has been initialized")
 	}
@@ -88,12 +88,12 @@ func (p *PluginResolvableContainer) InitModules(ctx context.Context) error {
 	return nil
 }
 
-func (p *PluginResolvableContainer) CloseModules(ctx context.Context) error {
+func (p *PluginResolvableContainer) CloseModules() error {
 	for key, enc := range p.encoders {
-		if init, ok := enc.(Initialize); ok {
-			err := init.Init(ctx, p.config.Encoders[key].Configs())
+		if closable, ok := enc.(Closable); ok {
+			err := closable.Close()
 			if err != nil {
-				return err
+				return errors.Wrap(err, `error closing encoder `+key)
 			}
 		}
 	}
@@ -101,15 +101,15 @@ func (p *PluginResolvableContainer) CloseModules(ctx context.Context) error {
 	if closable, ok := p.producer.(Closable); ok {
 		err := closable.Close()
 		if err != nil {
-			return err
+			return errors.Wrap(err, `error closing producer`)
 		}
 	}
 
-	for _, partitioner := range p.partitioner {
+	for key, partitioner := range p.partitioner {
 		if closable, ok := partitioner.(Closable); ok {
 			err := closable.Close()
 			if err != nil {
-				return err
+				return errors.Wrap(err, `error closing partitioner `+key)
 			}
 		}
 	}
@@ -121,7 +121,7 @@ func (p *PluginResolvableContainer) loadPlugins() error {
 	for key, pluginLoadData := range p.config.Plugins.Encoders {
 		err := p.loadEncoder(key, pluginLoadData)
 		if err != nil {
-			return err
+			return errors.Wrap(err, `error loading encoder plugin `+key)
 		}
 		log.Default().Print(`encoder plugin ` + key + ` loaded`)
 	}
@@ -129,7 +129,7 @@ func (p *PluginResolvableContainer) loadPlugins() error {
 	for key, pluginLoadData := range p.config.Plugins.Partitioners {
 		err := p.loadPartitioner(key, pluginLoadData)
 		if err != nil {
-			return err
+			return errors.Wrap(err, `error loading partitioner plugin `+key)
 		}
 		log.Default().Print(`partitioner plugin ` + key + ` loaded`)
 	}
@@ -140,7 +140,7 @@ func (p *PluginResolvableContainer) loadPlugins() error {
 func (p *PluginResolvableContainer) loadEncoder(key string, loadData config.PluginLoadConfig) error {
 	sym, err := p.loadPlugin(loadData)
 	if err != nil {
-		return err
+		return errors.Wrap(err, `error loading plugin `+key)
 	}
 
 	encoderPlugin, ok := sym.(codec.Encoder)
@@ -154,7 +154,7 @@ func (p *PluginResolvableContainer) loadEncoder(key string, loadData config.Plug
 func (p *PluginResolvableContainer) loadPartitioner(key string, loadData config.PluginLoadConfig) error {
 	sym, err := p.loadPlugin(loadData)
 	if err != nil {
-		return err
+		return errors.Wrap(err, `error loading plugin `+key)
 	}
 
 	partitionerPlugin, ok := sym.(producer.Partitioner)
@@ -168,11 +168,11 @@ func (p *PluginResolvableContainer) loadPartitioner(key string, loadData config.
 func (p *PluginResolvableContainer) loadPlugin(conf config.PluginLoadConfig) (plugin.Symbol, error) {
 	loadedPlugin, err := plugin.Open(`./` + p.config.Plugins.Dir + `/` + conf.FileName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, `error opening plugin `+conf.FileName)
 	}
 	sym, err := loadedPlugin.Lookup(conf.Symbol)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, `error looking up for symbol `+conf.Symbol+` in plugin file `+conf.FileName)
 	}
 
 	return sym, nil

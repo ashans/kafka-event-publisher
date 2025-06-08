@@ -1,6 +1,7 @@
 package common
 
 import (
+	"ev_pub/internal/errors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -12,7 +13,7 @@ func (m *ModuleConfig) UnmarshalYAML(value *yaml.Node) error {
 	configs := make(map[string]string)
 	err := value.Decode(&configs)
 	if err != nil {
-		return err
+		return errors.Wrap(err, `error decoding module config`)
 	}
 	m.configs = configs
 

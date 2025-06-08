@@ -2,7 +2,7 @@ POST http://localhost:8080/api
 Content-Type: application/json
 
 {
-  "topic": "test",
+  "topic": "tests",
   "headers": {
     "header1": "header_val1"
   },
